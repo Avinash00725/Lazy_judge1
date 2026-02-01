@@ -73,6 +73,7 @@ const seedData = async () => {
       }
     ]);
     console.log('✓ Judges seeded:', judges.length);
+    // Seed Teams
 
     // Seed Teams
     const teams = await Team.insertMany([
