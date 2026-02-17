@@ -61,26 +61,26 @@ const AdminLeaderboard = () => {
 
     // Add watermark logo in center
     const logoImg = new Image();
-    logoImg.src = '/AisummitLOGO.jpeg';
-    try {
-      const pageWidth = doc.internal.pageSize.width;
-      const pageHeight = doc.internal.pageSize.height;
-      const logoSize = 120; // Large watermark size
-      const xCenter = (pageWidth - logoSize) / 2;
-      const yCenter = (pageHeight - logoSize) / 2;
+    logoImg.src = '/logo.png';
+    // try {
+    //   const pageWidth = doc.internal.pageSize.width;
+    //   const pageHeight = doc.internal.pageSize.height;
+    //   const logoSize = 120; // Large watermark size
+    //   const xCenter = (pageWidth - logoSize) / 2;
+    //   const yCenter = (pageHeight - logoSize) / 2;
       
-      // Add logo with transparency as watermark
-      doc.saveGraphicsState();
-      doc.setGState(new doc.GState({ opacity: 0.1 }));
-      doc.addImage(logoImg, 'JPEG', xCenter, yCenter, logoSize, logoSize);
-      doc.restoreGraphicsState();
-    } catch (error) {
-      console.warn('Watermark logo could not be loaded');
-    }
+    //   // Add logo with transparency as watermark
+    //   doc.saveGraphicsState();
+    //   doc.setGState(new doc.GState({ opacity: 0.1 }));
+    //   doc.addImage(logoImg, 'JPEG', xCenter, yCenter, logoSize, logoSize);
+    //   doc.restoreGraphicsState();
+    // } catch (error) {
+    //   console.warn('Watermark logo could not be loaded');
+    // }
 
     // Add Header image at top
     const headerImg = new Image();
-    headerImg.src = '/header.jpeg';
+    headerImg.src = '/letterHead.jpeg';
     
     try {
       doc.addImage(headerImg, 'JPEG', 14, yPos, 180, 30);
@@ -118,18 +118,18 @@ const AdminLeaderboard = () => {
     doc.text(getEventLabel(team.eventType), 14 + colWidth + 5, yPos);
     
     doc.setFont(undefined, 'bold');
-    doc.text('NO OF TEAM', 120, yPos);
-    doc.text(':', 120 + 25, yPos);
+    doc.text('NO OF TEAM MEMBERS', 120, yPos);
+    doc.text(':', 120 + 37, yPos);
     doc.setFont(undefined, 'normal');
-    doc.text(team.totalMembers.toString(), 120 + 30, yPos);
+    doc.text(team.totalMembers.toString(), 120 + 39, yPos);
     
     yPos += 5;
     
-    doc.setFont(undefined, 'bold');
-    doc.text('MEMBERS', 14, yPos);
-    doc.text(':', 14 + colWidth, yPos);
+    // doc.setFont(undefined, 'bold');
+    // doc.text('MEMBERS', 14, yPos);
+    // doc.text(':', 14 + colWidth, yPos);
     
-    yPos += 7;
+    yPos += 5;
 
     // Team Members Section
     doc.setFont(undefined, 'bold');
@@ -142,29 +142,61 @@ const AdminLeaderboard = () => {
       member.email || ''
     ]);
     
+    // doc.autoTable({
+    //   head: [['TEAM MEMBERS NAMES', 'EMAIL ID']],
+    //   body: memberTableData,
+    //   startY: yPos,
+    //   theme: 'grid',
+    //   margin: { left: 14, right: 14 },
+    //   tableWidth: '170',
+    //   styles: {
+    //     fontSize: 8,
+    //     cellPadding: 2,
+    //     lineWidth: 0.5,
+    //     lineColor: 0,
+    //   },
+    //   headStyles: {
+    //     fillColor: [255, 255, 255],
+    //     textColor: 0,
+    //     fontStyle: 'bold',
+    //     lineWidth: 0.5,
+    //     lineColor: 0,
+    //   },
+    //   columnStyles: {
+    //     0: { cellWidth: 80 },
+    //     1: { cellWidth: 70 },
+    //   },
+    // });
+
     doc.autoTable({
-      head: [['TEAM MEMBERS NAMES', 'EMAIL ID']],
-      body: memberTableData,
-      startY: yPos,
-      theme: 'grid',
-      styles: {
-        fontSize: 8,
-        cellPadding: 2,
-        lineWidth: 0.5,
-        lineColor: 0,
-      },
-      headStyles: {
-        fillColor: [255, 255, 255],
-        textColor: 0,
-        fontStyle: 'bold',
-        lineWidth: 0.5,
-        lineColor: 0,
-      },
-      columnStyles: {
-        0: { cellWidth: 90 },
-        1: { cellWidth: 100 },
-      },
-    });
+  head: [['TEAM MEMBERS NAMES', 'EMAIL ID']],
+  body: memberTableData,
+  startY: yPos,
+  theme: 'grid',
+
+  // 🔥 This is the real fix
+  margin: { left: 14 },
+  tableWidth: doc.internal.pageSize.width - 28,  // 14 left + 14 right
+
+  styles: {
+    fontSize: 8,
+    cellPadding: 3,
+    lineWidth: 0.5,
+    lineColor: 0,
+  },
+
+  headStyles: {
+    fillColor: [255, 255, 255],
+    textColor: 0,
+    fontStyle: 'bold',
+  },
+
+  columnStyles: {
+    0: { cellWidth: 100 },   
+    1: { cellWidth: 'auto' } 
+  },
+});
+
 
     yPos = doc.lastAutoTable.finalY + 10;
 
@@ -225,8 +257,10 @@ const AdminLeaderboard = () => {
     });
 
     // Calculate total marks
-    const totalMarks = evaluations.reduce((sum, e) => sum + e.totalScore, 0);
-    const maxMarks = schema.reduce((sum, param) => sum + param.maxScore, 0) * 2 * evaluations.length;
+    const totalRawMarks = evaluations.reduce((sum, e) => sum + e.totalScore, 0);
+    const averagedMarks = (totalRawMarks / 4).toFixed(0);
+    const finalDisplay = `${averagedMarks}/100`;
+
 
     doc.autoTable({
       head: [scoringHeaders],
@@ -259,7 +293,8 @@ const AdminLeaderboard = () => {
     // Total Marks
     doc.setFontSize(10);
     doc.setFont(undefined, 'bold');
-    doc.text(`TOTAL MARKS:           / ${maxMarks}`, 14, yPos);
+    doc.text(`TOTAL MARKS: ${finalDisplay}`, 14, yPos);
+
     
     yPos += 10;
 
@@ -314,19 +349,26 @@ const AdminLeaderboard = () => {
     yPos = sigY + 15;
 
     // Footer logos
-    try {
-      const footerLogoImg = new Image();
-      footerLogoImg.src = '/AisummitLOGO.jpeg';
-      const aiSummitLogoImg = new Image();
-      aiSummitLogoImg.src = '/AisummitLOGO.jpeg';
-      
-      doc.addImage(footerLogoImg, 'JPEG', 14, yPos, 20, 20);
-      doc.setFontSize(8);
-      doc.text('AI Summit', 37, yPos + 10);
-      doc.text('2026', 37, yPos + 15);
-    } catch (error) {
-      console.warn('Footer logos could not be loaded');
-    }
+    yPos += 20;  // space after signatures
+
+try {
+  const footerLogoImg = new Image();
+  footerLogoImg.src = '/logo.png';
+
+  const pageWidth = doc.internal.pageSize.width;
+
+  const logoWidth = 55;   // 🔥 bigger
+  const logoHeight = 35;
+
+  const centerX = (pageWidth - logoWidth) / 2;
+
+  doc.addImage(footerLogoImg, 'PNG', centerX, yPos, logoWidth, logoHeight);
+
+} catch (error) {
+  console.warn('Footer logo could not be loaded');
+}
+
+
 
     doc.save(`${team.name}_Evaluation_Report.pdf`);
   };
