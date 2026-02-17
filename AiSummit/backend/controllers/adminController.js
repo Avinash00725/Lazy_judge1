@@ -88,7 +88,7 @@ export const deleteTeam = async (req, res) => {
 
 export const createJudge = async (req, res) => {
   try {
-    const { name, email, password, assignedEvent } = req.body;
+    const { name, email, password, assignedEvents } = req.body;
 
     const judgeExists = await Judge.findOne({ email });
     if (judgeExists) {
@@ -99,14 +99,14 @@ export const createJudge = async (req, res) => {
       name,
       email,
       password,
-      assignedEvent
+      assignedEvents
     });
 
     res.status(201).json({
       _id: judge._id,
       name: judge.name,
       email: judge.email,
-      assignedEvent: judge.assignedEvent,
+      assignedEvents: judge.assignedEvents,
       isActive: judge.isActive
     });
   } catch (error) {
@@ -131,11 +131,11 @@ export const updateJudge = async (req, res) => {
       return res.status(404).json({ message: 'Judge not found' });
     }
 
-    const { name, email, assignedEvent, isActive } = req.body;
+    const { name, email, assignedEvents, isActive } = req.body;
 
     judge.name = name || judge.name;
     judge.email = email || judge.email;
-    judge.assignedEvent = assignedEvent || judge.assignedEvent;
+    judge.assignedEvents = assignedEvents || judge.assignedEvents;
     judge.isActive = isActive !== undefined ? isActive : judge.isActive;
 
     const updatedJudge = await judge.save();
@@ -144,7 +144,7 @@ export const updateJudge = async (req, res) => {
       _id: updatedJudge._id,
       name: updatedJudge.name,
       email: updatedJudge.email,
-      assignedEvent: updatedJudge.assignedEvent,
+      assignedEvents: updatedJudge.assignedEvents,
       isActive: updatedJudge.isActive
     });
   } catch (error) {

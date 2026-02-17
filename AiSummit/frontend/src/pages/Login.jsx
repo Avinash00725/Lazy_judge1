@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { loginAdmin, loginJudge } from '../services/authService';
 import { useAuth } from '../context/AuthContext';
 
 const Login = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const [userType, setUserType] = useState(null);
   const [formData, setFormData] = useState({
     email: '',
@@ -13,7 +13,12 @@ const Login = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      navigate(user.role === 'admin' ? '/admin' : '/judge', { replace: true });
+    }
+  }, [user, navigate]);
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');

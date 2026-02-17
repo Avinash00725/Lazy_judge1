@@ -3,6 +3,7 @@ import { getAllLeaderboards, getTeamAnalytics } from '../../services/adminServic
 import Loader from '../Loader';
 import Modal from '../Modal';
 import { getEventLabel } from '../../utils/helpers';
+import { getMarkingSchema } from '../../utils/markingSchemas';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
@@ -54,194 +55,277 @@ const AdminLeaderboard = () => {
 
     const doc = new jsPDF();
     const { team, evaluations } = analytics;
+    const schema = getMarkingSchema(team.eventType);
 
+    let yPos = 15;
+
+    // Add watermark logo in center
+    const logoImg = new Image();
+    logoImg.src = '/AisummitLOGO.jpeg';
+    try {
+      const pageWidth = doc.internal.pageSize.width;
+      const pageHeight = doc.internal.pageSize.height;
+      const logoSize = 120; // Large watermark size
+      const xCenter = (pageWidth - logoSize) / 2;
+      const yCenter = (pageHeight - logoSize) / 2;
+      
+      // Add logo with transparency as watermark
+      doc.saveGraphicsState();
+      doc.setGState(new doc.GState({ opacity: 0.1 }));
+      doc.addImage(logoImg, 'JPEG', xCenter, yCenter, logoSize, logoSize);
+      doc.restoreGraphicsState();
+    } catch (error) {
+      console.warn('Watermark logo could not be loaded');
+    }
+
+    // Add Header image at top
+    const headerImg = new Image();
+    headerImg.src = '/header.jpeg';
+    
+    try {
+      doc.addImage(headerImg, 'JPEG', 14, yPos, 180, 30);
+    } catch (error) {
+      console.warn('Header image could not be loaded');
+    }
+    
+    yPos += 35;
+    
     // Title
-    doc.setFontSize(18);
-    doc.setFont(undefined, 'bold');
-    doc.text('Team Evaluation Report', 105, 20, { align: 'center' });
-
-    // Team Info
-    doc.setFontSize(12);
-    doc.setFont(undefined, 'normal');
-    doc.text(`Team Name: ${team.name}`, 14, 35);
-    doc.text(`Event: ${getEventLabel(team.eventType)}`, 14, 42);
-    doc.text(`Total Members: ${team.totalMembers}`, 14, 49);
-
-    // Members
-    doc.setFontSize(10);
-    doc.text('Team Members:', 14, 59);
-    team.members.forEach((member, idx) => {
-      doc.text(`${idx + 1}. ${member.name} (${member.email})`, 20, 66 + idx * 7);
-    });
-
-    let yPos = 66 + team.members.length * 7 + 15;
-
-    // Judge Evaluations Table
     doc.setFontSize(12);
     doc.setFont(undefined, 'bold');
-    doc.text('Judge Evaluations', 14, yPos);
+    const pageWidth = doc.internal.pageSize.width;
+    doc.text('GNITC AI SUMMIT TEAM EVALUATION REPORT', pageWidth / 2, yPos, { align: 'center' });
+    
     yPos += 10;
 
-    // Create table data
-    const tableHeaders = [
-      'Judge',
-      'R1-Q1', 'R1-Q2', 'R1-Q3', 'R1-Q4', 'R1-Q5', 'R1 Total',
-      'R2-Q1', 'R2-Q2', 'R2-Q3', 'R2-Q4', 'R2-Q5', 'R2 Total',
-      'Total'
-    ];
+    // Team Information Box
+    doc.setFontSize(9);
+    
+    // First row: Team Name, Team Leader, No of Team
+    const colWidth = 60;
+    doc.setFont(undefined, 'bold');
+    doc.text('TEAM NAME', 14, yPos);
+    doc.text(':', 14 + colWidth, yPos);
+    doc.setFont(undefined, 'normal');
+    doc.text(team.name, 14 + colWidth + 5, yPos);
+    
+    yPos += 5;
+    
+    doc.setFont(undefined, 'bold');
+    doc.text('EVENT', 14, yPos);
+    doc.text(':', 14 + colWidth, yPos);
+    doc.setFont(undefined, 'normal');
+    doc.text(getEventLabel(team.eventType), 14 + colWidth + 5, yPos);
+    
+    doc.setFont(undefined, 'bold');
+    doc.text('NO OF TEAM', 120, yPos);
+    doc.text(':', 120 + 25, yPos);
+    doc.setFont(undefined, 'normal');
+    doc.text(team.totalMembers.toString(), 120 + 30, yPos);
+    
+    yPos += 5;
+    
+    doc.setFont(undefined, 'bold');
+    doc.text('MEMBERS', 14, yPos);
+    doc.text(':', 14 + colWidth, yPos);
+    
+    yPos += 7;
 
-    const tableData = evaluations.map((evaluation) => {
-      const round1 = evaluation.rounds.find(r => r.roundNumber === 1);
-      const round2 = evaluation.rounds.find(r => r.roundNumber === 2);
+    // Team Members Section
+    doc.setFont(undefined, 'bold');
+    doc.text('TEAM MEMBERS:', 14, yPos);
+    yPos += 5;
+    
+    // Team members table
+    const memberTableData = team.members.map((member, idx) => [
+      member.name,
+      member.email || ''
+    ]);
+    
+    doc.autoTable({
+      head: [['TEAM MEMBERS NAMES', 'EMAIL ID']],
+      body: memberTableData,
+      startY: yPos,
+      theme: 'grid',
+      styles: {
+        fontSize: 8,
+        cellPadding: 2,
+        lineWidth: 0.5,
+        lineColor: 0,
+      },
+      headStyles: {
+        fillColor: [255, 255, 255],
+        textColor: 0,
+        fontStyle: 'bold',
+        lineWidth: 0.5,
+        lineColor: 0,
+      },
+      columnStyles: {
+        0: { cellWidth: 90 },
+        1: { cellWidth: 100 },
+      },
+    });
 
-      const row = [evaluation.judgeName];
+    yPos = doc.lastAutoTable.finalY + 10;
 
-      // Round 1 scores
-      if (round1) {
-        round1.questions.forEach(q => row.push(q.score.toString()));
-        row.push(round1.totalScore.toString());
-      } else {
-        row.push('-', '-', '-', '-', '-', '-');
-      }
+    // Scoring Rubrics Section
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'bold');
+    doc.text('SCORING RUBRICS:-', 14, yPos);
+    yPos += 7;
 
-      // Round 2 scores
-      if (round2 && round2.questions.length > 0) {
-        round2.questions.forEach(q => row.push(q.score.toString()));
-        row.push(round2.totalScore.toString());
-      } else {
-        row.push('-', '-', '-', '-', '-', '-');
-      }
+    // Prepare scoring table data
+    const scoringHeaders = ['S.L', 'PARAMETERS'];
+    const judgeNames = [...new Set(evaluations.map(e => e.judgeName))];
+    
+    // Add judge columns for Round 1
+    judgeNames.forEach(name => {
+      scoringHeaders.push(`JUDGE-\n${name.split(' ')[0]}`);
+    });
+    // Add judge columns for Round 2
+    judgeNames.forEach(name => {
+      scoringHeaders.push(`JUDGE-\n${name.split(' ')[0]}`);
+    });
+    scoringHeaders.push('TOTAL');
 
-      row.push(evaluation.totalScore.toString());
+    const scoringData = schema.map((param, idx) => {
+      const row = [
+        (idx + 1).toString(),
+        `${param.parameterName}(${param.maxScore})`
+      ];
+      
+      // Round 1 scores for each judge
+      judgeNames.forEach(judgeName => {
+        const evaluation = evaluations.find(e => e.judgeName === judgeName);
+        const round1 = evaluation?.rounds.find(r => r.roundNumber === 1);
+        const score = round1?.questions.find(q => q.questionNumber === param.questionNumber)?.score || '-';
+        row.push(score.toString());
+      });
+      
+      // Round 2 scores for each judge
+      judgeNames.forEach(judgeName => {
+        const evaluation = evaluations.find(e => e.judgeName === judgeName);
+        const round2 = evaluation?.rounds.find(r => r.roundNumber === 2);
+        const score = round2?.questions.find(q => q.questionNumber === param.questionNumber)?.score || '-';
+        row.push(score.toString());
+      });
+      
+      // Calculate total for this parameter across all judges and rounds
+      let total = 0;
+      evaluations.forEach(evaluation => {
+        const round1 = evaluation.rounds.find(r => r.roundNumber === 1);
+        const round2 = evaluation.rounds.find(r => r.roundNumber === 2);
+        const r1Score = round1?.questions.find(q => q.questionNumber === param.questionNumber)?.score || 0;
+        const r2Score = round2?.questions.find(q => q.questionNumber === param.questionNumber)?.score || 0;
+        total += r1Score + r2Score;
+      });
+      row.push(total.toString());
+      
       return row;
     });
 
-    // Calculate averages
-    const averageRow = ['Average'];
-    
-    // Round 1 question averages
-    for (let qNum = 1; qNum <= 5; qNum++) {
-      const scores = evaluations
-        .map(e => e.rounds.find(r => r.roundNumber === 1))
-        .filter(r => r)
-        .map(r => r.questions.find(q => q.questionNumber === qNum)?.score || 0);
-      const avg = scores.length > 0 ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : '-';
-      averageRow.push(avg);
-    }
+    // Calculate total marks
+    const totalMarks = evaluations.reduce((sum, e) => sum + e.totalScore, 0);
+    const maxMarks = schema.reduce((sum, param) => sum + param.maxScore, 0) * 2 * evaluations.length;
 
-    // Round 1 total average
-    const round1Scores = evaluations
-      .map(e => e.rounds.find(r => r.roundNumber === 1))
-      .filter(r => r)
-      .map(r => r.totalScore);
-    averageRow.push(
-      round1Scores.length > 0
-        ? (round1Scores.reduce((a, b) => a + b, 0) / round1Scores.length).toFixed(2)
-        : '-'
-    );
-
-    // Round 2 question averages
-    for (let qNum = 1; qNum <= 5; qNum++) {
-      const scores = evaluations
-        .map(e => e.rounds.find(r => r.roundNumber === 2))
-        .filter(r => r && r.questions.length > 0)
-        .map(r => r.questions.find(q => q.questionNumber === qNum)?.score || 0);
-      const avg = scores.length > 0 ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : '-';
-      averageRow.push(avg);
-    }
-
-    // Round 2 total average
-    const round2Scores = evaluations
-      .map(e => e.rounds.find(r => r.roundNumber === 2))
-      .filter(r => r && r.questions.length > 0)
-      .map(r => r.totalScore);
-    averageRow.push(
-      round2Scores.length > 0
-        ? (round2Scores.reduce((a, b) => a + b, 0) / round2Scores.length).toFixed(2)
-        : '-'
-    );
-
-    // Overall average
-    const totalScores = evaluations.map(e => e.totalScore);
-    averageRow.push(
-      totalScores.length > 0
-        ? (totalScores.reduce((a, b) => a + b, 0) / totalScores.length).toFixed(2)
-        : '-'
-    );
-
-    tableData.push(averageRow);
-
-    // Generate table using autoTable
     doc.autoTable({
-      head: [tableHeaders],
-      body: tableData,
+      head: [scoringHeaders],
+      body: scoringData,
       startY: yPos,
       theme: 'grid',
       styles: {
         fontSize: 7,
         cellPadding: 2,
+        halign: 'center',
+        lineWidth: 0.5,
+        lineColor: 0,
       },
       headStyles: {
-        fillColor: [59, 130, 246],
-        textColor: 255,
+        fillColor: [255, 255, 255],
+        textColor: 0,
         fontStyle: 'bold',
-        halign: 'center',
-      },
-      bodyStyles: {
+        lineWidth: 0.5,
+        lineColor: 0,
         halign: 'center',
       },
       columnStyles: {
-        0: { halign: 'left', cellWidth: 30 },
-      },
-      didParseCell: function(data) {
-        // Highlight average row
-        if (data.row.index === tableData.length - 1) {
-          data.cell.styles.fillColor = [219, 234, 254];
-          data.cell.styles.fontStyle = 'bold';
-        }
+        0: { cellWidth: 10 },
+        1: { halign: 'left', cellWidth: 50 },
       },
     });
 
-    yPos = doc.lastAutoTable.finalY + 15;
+    yPos = doc.lastAutoTable.finalY + 5;
 
-    // Remarks section
-    if (evaluations.some(e => e.remarks)) {
-      doc.setFontSize(12);
-      doc.setFont(undefined, 'bold');
-      doc.text('Judge Remarks', 14, yPos);
-      yPos += 10;
+    // Total Marks
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'bold');
+    doc.text(`TOTAL MARKS:           / ${maxMarks}`, 14, yPos);
+    
+    yPos += 10;
 
-      doc.setFontSize(10);
-      doc.setFont(undefined, 'normal');
-      evaluations.forEach((evaluation) => {
-        if (evaluation.remarks) {
-          if (yPos > 250) {
-            doc.addPage();
-            yPos = 20;
-          }
-          doc.setFont(undefined, 'bold');
-          doc.text(`${evaluation.judgeName}:`, 14, yPos);
-          yPos += 7;
-          doc.setFont(undefined, 'normal');
-          const remarks = doc.splitTextToSize(evaluation.remarks, 180);
-          doc.text(remarks, 20, yPos);
-          yPos += remarks.length * 6 + 10;
+    // Remarks Section
+    doc.text('REMARKS:', 14, yPos);
+    yPos += 7;
+
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'normal');
+    evaluations.forEach((evaluation) => {
+      if (evaluation.remarks) {
+        if (yPos > 250) {
+          doc.addPage();
+          yPos = 20;
         }
-      });
+        doc.setFont(undefined, 'bold');
+        doc.text(`${evaluation.judgeName}:`, 14, yPos);
+        yPos += 5;
+        doc.setFont(undefined, 'normal');
+        const remarks = doc.splitTextToSize(evaluation.remarks, 180);
+        doc.text(remarks, 20, yPos);
+        yPos += remarks.length * 5 + 5;
+      }
+    });
+
+    // Check if we need a new page for signatures
+    if (yPos > 220) {
+      doc.addPage();
+      yPos = 20;
+    } else {
+      yPos += 10;
     }
 
-    // Footer
-    const pageCount = doc.internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
+    // Signature Section
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'normal');
+    
+    const sigY = yPos;
+    
+    // Left signature
+    doc.text('DR. MAMATHA TALAKOTI', 14, sigY);
+    doc.text('Assoc. Prof | HoD-CSE | SNIST', 14, sigY + 5);
+    
+    // Middle signature
+    doc.text('Dr. S. MADHU', 80, sigY);
+    doc.text('HoD - CSM|CSO|AI&DS, GNITC', 73, sigY + 5);
+    
+    // Right signature
+    doc.text('DR. P. PAVAN KUMAR', 155, sigY);
+    doc.text('Asst. Prof AIML | GNITC', 155, sigY + 5);
+    
+    yPos = sigY + 15;
+
+    // Footer logos
+    try {
+      const footerLogoImg = new Image();
+      footerLogoImg.src = '/AisummitLOGO.jpeg';
+      const aiSummitLogoImg = new Image();
+      aiSummitLogoImg.src = '/AisummitLOGO.jpeg';
+      
+      doc.addImage(footerLogoImg, 'JPEG', 14, yPos, 20, 20);
       doc.setFontSize(8);
-      doc.setFont(undefined, 'normal');
-      doc.text(
-        `Page ${i} of ${pageCount}`,
-        doc.internal.pageSize.width / 2,
-        doc.internal.pageSize.height - 10,
-        { align: 'center' }
-      );
+      doc.text('AI Summit', 37, yPos + 10);
+      doc.text('2026', 37, yPos + 15);
+    } catch (error) {
+      console.warn('Footer logos could not be loaded');
     }
 
     doc.save(`${team.name}_Evaluation_Report.pdf`);

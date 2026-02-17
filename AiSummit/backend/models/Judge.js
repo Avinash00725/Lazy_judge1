@@ -17,10 +17,17 @@ const judgeSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  assignedEvent: {
-    type: String,
+  assignedEvents: {
+    type: [String],
     required: true,
-    enum: ['poster-presentation', 'paper-presentation', 'startup-expo']
+    validate: {
+      validator: function(arr) {
+        return arr.length > 0 && arr.every(event => 
+          ['poster-presentation', 'paper-presentation', 'startup-expo'].includes(event)
+        );
+      },
+      message: 'At least one valid event must be assigned'
+    }
   },
   isActive: {
     type: Boolean,

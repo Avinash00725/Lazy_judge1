@@ -9,6 +9,7 @@ import {
 import Loader from '../Loader';
 import Modal from '../Modal';
 import { getEventLabel } from '../../utils/helpers';
+import { getMarkingSchema, getTotalMaxScore } from '../../utils/markingSchemas';
 
 const MarkingSection = () => {
   const { user } = useAuth();
@@ -17,14 +18,15 @@ const MarkingSection = () => {
   const [showModal, setShowModal] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [formData, setFormData] = useState({
-    round1: Array(5).fill(5),
-    round2: Array(5).fill(5),
+    round1: [],
+    round2: [],
     remarks: '',
   });
   const [existingEvaluation, setExistingEvaluation] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [activeRound, setActiveRound] = useState(1);
   const [round1Completed, setRound1Completed] = useState(false);
+  const [currentSchema, setCurrentSchema] = useState([]);
 
   useEffect(() => {
     fetchTeams();
@@ -47,6 +49,10 @@ const MarkingSection = () => {
     setActiveRound(1);
     setRound1Completed(false);
 
+    // Get the marking schema for this team's event type
+    const schema = getMarkingSchema(team.eventType);
+    setCurrentSchema(schema);
+
     try {
       const evaluation = await getEvaluationForTeam(team._id);
       setExistingEvaluation(evaluation);
@@ -55,8 +61,8 @@ const MarkingSection = () => {
       const round2 = evaluation.rounds.find((r) => r.roundNumber === 2);
 
       setFormData({
-        round1: round1 ? round1.questions.map((q) => q.score) : Array(5).fill(5),
-        round2: round2 ? round2.questions.map((q) => q.score) : Array(5).fill(5),
+        round1: round1 ? round1.questions.map((q) => q.score) : schema.map(() => 0),
+        round2: round2 ? round2.questions.map((q) => q.score) : schema.map(() => 0),
         remarks: evaluation.remarks || '',
       });
 
@@ -68,8 +74,8 @@ const MarkingSection = () => {
       // No existing evaluation
       setExistingEvaluation(null);
       setFormData({
-        round1: Array(5).fill(5),
-        round2: Array(5).fill(5),
+        round1: schema.map(() => 0),
+        round2: schema.map(() => 0),
         remarks: '',
       });
     }
@@ -85,7 +91,9 @@ const MarkingSection = () => {
           roundNumber: 1,
           questions: formData.round1.map((score, idx) => ({
             questionNumber: idx + 1,
+            parameterName: currentSchema[idx].parameterName,
             score: parseInt(score),
+            maxScore: currentSchema[idx].maxScore
           })),
         }
       ];
@@ -96,7 +104,9 @@ const MarkingSection = () => {
           roundNumber: 2,
           questions: formData.round2.map((score, idx) => ({
             questionNumber: idx + 1,
+            parameterName: currentSchema[idx].parameterName,
             score: parseInt(score),
+            maxScore: currentSchema[idx].maxScore
           })),
         });
       } else if (existingEvaluation) {
@@ -147,7 +157,8 @@ const MarkingSection = () => {
   };
 
   const updateScore = (round, index, value) => {
-    const score = Math.min(10, Math.max(1, parseInt(value) || 1));
+    const maxScore = currentSchema[index]?.maxScore || 0;
+    const score = Math.min(maxScore, Math.max(0, parseInt(value) || 0));
     if (round === 1) {
       const newRound1 = [...formData.round1];
       newRound1[index] = score;
@@ -166,7 +177,13 @@ const MarkingSection = () => {
       <div>
         <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Marking Section</h2>
         <p className="text-xs sm:text-sm text-gray-600 mt-1">
-          Assigned Event: <span className="font-medium">{getEventLabel(user.assignedEvent)}</span>
+          Assigned Events: 
+          {user.assignedEvents && user.assignedEvents.map((event, index) => (
+            <span key={event} className="font-medium">
+              {index > 0 && ', '}
+              {' '}{getEventLabel(event)}
+            </span>
+          ))}
         </p>
       </div>
 
@@ -174,6 +191,7 @@ const MarkingSection = () => {
         {teams.map((team) => (
           <div key={team._id} className="card hover:shadow-lg transition cursor-pointer" onClick={() => openMarkingModal(team)}>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">{team.name}</h3>
+            <p className="text-sm text-gray-600 mb-1">Event: {getEventLabel(team.eventType)}</p>
             <p className="text-sm text-gray-600 mb-3">Members: {team.totalMembers}</p>
             <button
               className="w-full btn-primary"
@@ -191,7 +209,7 @@ const MarkingSection = () => {
       {teams.length === 0 && (
         <div className="text-center py-12">
           <p className="text-gray-500">
-            No teams assigned for {getEventLabel(user.assignedEvent)}.
+            No teams assigned for your events.
           </p>
         </div>
       )}
@@ -259,23 +277,24 @@ const MarkingSection = () => {
               <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">
                 Round 1
                 <span className="text-xs sm:text-sm font-normal text-gray-600 ml-2">
-                  (Total: {formData.round1.reduce((a, b) => a + b, 0)}/50)
+                  (Total: {formData.round1.reduce((a, b) => a + b, 0)}/{getTotalMaxScore(selectedTeam?.eventType)})
                 </span>
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                {formData.round1.map((score, idx) => (
-                  <div key={idx}>
-                    <label className="label">Question {idx + 1}</label>
+              <div className="space-y-3 sm:space-y-4">
+                {currentSchema.map((param, idx) => (
+                  <div key={idx} className="border-b pb-3 last:border-b-0">
+                    <label className="label">{param.parameterName}</label>
                     <input
                       type="number"
-                      min="1"
-                      max="10"
+                      min="0"
+                      max={param.maxScore}
+                      step="1"
                       required
-                      value={score}
+                      value={formData.round1[idx] || 0}
                       onChange={(e) => updateScore(1, idx, e.target.value)}
                       className="input-field"
                     />
-                    <p className="text-xs text-gray-500 mt-1">Score: 1-10</p>
+                    <p className="text-xs text-gray-500 mt-1">Score: 0-{param.maxScore}</p>
                   </div>
                 ))}
               </div>
@@ -288,23 +307,24 @@ const MarkingSection = () => {
               <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">
                 Round 2
                 <span className="text-xs sm:text-sm font-normal text-gray-600 ml-2">
-                  (Total: {formData.round2.reduce((a, b) => a + b, 0)}/50)
+                  (Total: {formData.round2.reduce((a, b) => a + b, 0)}/{getTotalMaxScore(selectedTeam?.eventType)})
                 </span>
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                {formData.round2.map((score, idx) => (
-                  <div key={idx}>
-                    <label className="label">Question {idx + 1}</label>
+              <div className="space-y-3 sm:space-y-4">
+                {currentSchema.map((param, idx) => (
+                  <div key={idx} className="border-b pb-3 last:border-b-0">
+                    <label className="label">{param.parameterName}</label>
                     <input
                       type="number"
-                      min="1"
-                      max="10"
+                      min="0"
+                      max={param.maxScore}
+                      step="1"
                       required
-                      value={score}
+                      value={formData.round2[idx] || 0}
                       onChange={(e) => updateScore(2, idx, e.target.value)}
                       className="input-field"
                     />
-                    <p className="text-xs text-gray-500 mt-1">Score: 1-10</p>
+                    <p className="text-xs text-gray-500 mt-1">Score: 0-{param.maxScore}</p>
                   </div>
                 ))}
               </div>
@@ -330,7 +350,7 @@ const MarkingSection = () => {
               {activeRound === 1
                 ? formData.round1.reduce((a, b) => a + b, 0)
                 : formData.round2.reduce((a, b) => a + b, 0)}
-              /50
+              /{getTotalMaxScore(selectedTeam?.eventType)}
             </p>
           </div>
 

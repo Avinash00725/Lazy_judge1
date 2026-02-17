@@ -4,7 +4,7 @@ import Team from '../models/Team.js';
 export const getAssignedTeams = async (req, res) => {
   try {
     const judge = req.user;
-    const teams = await Team.find({ eventType: judge.assignedEvent });
+    const teams = await Team.find({ eventType: { $in: judge.assignedEvents } });
     res.json(teams);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -30,8 +30,8 @@ export const createOrUpdateEvaluation = async (req, res) => {
       return res.status(404).json({ message: 'Team not found' });
     }
 
-    if (team.eventType !== req.user.assignedEvent) {
-      return res.status(403).json({ message: 'You can only evaluate teams from your assigned event' });
+    if (!req.user.assignedEvents.includes(team.eventType)) {
+      return res.status(403).json({ message: 'You can only evaluate teams from your assigned events' });
     }
 
     let evaluation = await Evaluation.findOne({ team: teamId, judge: judgeId });
@@ -246,8 +246,8 @@ export const selectTeamForRound2 = async (req, res) => {
       return res.status(404).json({ message: 'Team not found' });
     }
 
-    if (team.eventType !== req.user.assignedEvent) {
-      return res.status(403).json({ message: 'You can only select teams from your assigned event' });
+    if (!req.user.assignedEvents.includes(team.eventType)) {
+      return res.status(403).json({ message: 'You can only select teams from your assigned events' });
     }
 
     // Check if judge has evaluated Round 1 for this team

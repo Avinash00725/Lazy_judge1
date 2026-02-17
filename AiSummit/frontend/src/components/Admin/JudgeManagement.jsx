@@ -13,7 +13,7 @@ const JudgeManagement = () => {
     name: '',
     email: '',
     password: '',
-    assignedEvent: 'poster-presentation',
+    assignedEvents: [],
   });
 
   useEffect(() => {
@@ -33,6 +33,12 @@ const JudgeManagement = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (formData.assignedEvents.length === 0) {
+      alert('Please select at least one event');
+      return;
+    }
+    
     try {
       if (editingJudge) {
         const updateData = { ...formData };
@@ -71,7 +77,7 @@ const JudgeManagement = () => {
       name: judge.name,
       email: judge.email,
       password: '',
-      assignedEvent: judge.assignedEvent,
+      assignedEvents: judge.assignedEvents || [],
     });
     setShowModal(true);
   };
@@ -90,7 +96,7 @@ const JudgeManagement = () => {
       name: '',
       email: '',
       password: '',
-      assignedEvent: 'poster-presentation',
+      assignedEvents: [],
     });
     setEditingJudge(null);
   };
@@ -129,10 +135,12 @@ const JudgeManagement = () => {
               </span>
             </div>
 
-            <div className="mt-3">
-              <span className={`inline-block px-3 py-1 text-xs font-medium rounded-full ${getEventColor(judge.assignedEvent)}`}>
-                {getEventLabel(judge.assignedEvent)}
-              </span>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {judge.assignedEvents && judge.assignedEvents.map((event) => (
+                <span key={event} className={`inline-block px-3 py-1 text-xs font-medium rounded-full ${getEventColor(event)}`}>
+                  {getEventLabel(event)}
+                </span>
+              ))}
             </div>
 
             <div className="mt-4 flex flex-col gap-2">
@@ -205,9 +213,7 @@ const JudgeManagement = () => {
           </div>
 
           <div>
-            <label className="label">
-              Password {editingJudge && '(leave blank to keep current)'}
-            </label>
+            <label className="label">Password {editingJudge && '(leave blank to keep current)'}</label>
             <input
               type="password"
               required={!editingJudge}
@@ -219,17 +225,39 @@ const JudgeManagement = () => {
           </div>
 
           <div>
-            <label className="label">Assigned Event</label>
-            <select
-              value={formData.assignedEvent}
-              onChange={(e) => setFormData({ ...formData, assignedEvent: e.target.value })}
-              className="input-field"
-              required
-            >
-              <option value="poster-presentation">Poster Presentation</option>
-              <option value="paper-presentation">Paper Presentation</option>
-              <option value="startup-expo">Startup Expo</option>
-            </select>
+            <label className="label">Assigned Events (Select at least one)</label>
+            <div className="space-y-2 p-3 border rounded-lg">
+              {[
+                { value: 'poster-presentation', label: 'Poster Presentation' },
+                { value: 'paper-presentation', label: 'Paper Presentation' },
+                { value: 'startup-expo', label: 'Startup Expo' }
+              ].map((event) => (
+                <label key={event.value} className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.assignedEvents.includes(event.value)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setFormData({ 
+                          ...formData, 
+                          assignedEvents: [...formData.assignedEvents, event.value] 
+                        });
+                      } else {
+                        setFormData({ 
+                          ...formData, 
+                          assignedEvents: formData.assignedEvents.filter(ev => ev !== event.value) 
+                        });
+                      }
+                    }}
+                    className="h-4 w-4 text-primary-600 rounded focus:ring-primary-500"
+                  />
+                  <span className="text-sm text-gray-700">{event.label}</span>
+                </label>
+              ))}
+            </div>
+            {formData.assignedEvents.length === 0 && (
+              <p className="text-xs text-red-600 mt-1">Please select at least one event</p>
+            )}
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-3 sm:pt-4">
